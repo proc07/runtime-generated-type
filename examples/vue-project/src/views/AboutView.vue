@@ -3,7 +3,7 @@
     <h1>This is an about page</h1>
   </div>
 </template>
-git remote set-url origin https://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@github.com/proc07/runtime-generated-type.git
+
 <script lang="ts">
 import { defineComponent, onMounted} from 'vue'
 import axios from 'axios'
@@ -19,6 +19,10 @@ export default defineComponent({
           console.log(res.data)
         })
         axios.post('/api/posts/4/comments?time='+ +new Date()).then((res: {data: PostCommentsResType}) => {
+          console.log(res.data)
+        })
+
+        axios.get('/api/photos/8?time='+ +new Date()).then((res: {data: PostCommentsResType}) => {
           console.log(res.data)
         })
 

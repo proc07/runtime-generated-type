@@ -3,30 +3,70 @@ import type { HttpProxy, ProxyOptions } from 'vite'
 import chalk from 'chalk'
 import { baseParse, createTypeAst } from './compile/parse'
 import { generate } from './compile/codegen'
-import { detectionTypName, toFirstUpperCase } from './utils/util'
+import { isAllNumbers, isUUID, toFirstUpperCase } from './utils/util'
 import decompress from './utils/decompress'
 
-interface userOptions {
-  outputPath: string
-  dataSource?: string
-  genOnce?: boolean
-}
+let fileProcessing = false
+const taskQueue: Array<Function> = []
+const RegexAnnotation = /\/\*\*([\s\S]*?)\*\//g
+const RegexExport = /(export\s+(type|interface)\s+([a-zA-Z0-9_]+)\s+=\s+)(?:(?!type|interface).)+>/s
 
 function validateStatus(status: number) {
   return status >= 200 && status < 300
 }
+function checkParamId(params: string) {
+  return isAllNumbers(params) || isUUID(params)
+}
 
-export function createRuntimeGeneratedType({ outputPath, dataSource = '', genOnce = false }: userOptions) {
+interface GenAnnotationProps {
+  url: string
+  method: string
+  typeName: string
+}
+function generateAnnotation({
+  url,
+  method,
+  typeName,
+}: GenAnnotationProps) {
+  return `/**
+ * Request URL: ${url}
+ * 
+ * Request Method: ${method}
+ * 
+ * @typeName ${typeName}
+ */`
+}
+
+interface userOptions {
+  outputPath: string
+  dataSource?: string
+  baseUrl?: string
+  genOnce?: boolean
+}
+export function createRuntimeGeneratedType({ outputPath, dataSource = '', baseUrl = '', genOnce = false }: userOptions) {
+  const RegExpUrl = baseUrl.replaceAll('/*', '/([^/]*)')
+
   return function (proxy: HttpProxy.Server, options: ProxyOptions) {
-    // proxy 是 'http-proxy' 的实例
     proxy.on('proxyRes', async (proxyRes, req, res) => {
-      const { pathname } = new URL(req.url as string, `http://${req.headers.host}`)
-      const pathnameSplitList = pathname.split('/')
       const method = req.method || ''
-      const typeName = `${toFirstUpperCase(method.toLowerCase())}${toFirstUpperCase(pathnameSplitList[pathnameSplitList.length - 1])}ResType`
-      const isExistTypeName = detectionTypName(typeName)
+      const { pathname } = new URL(req.url as string, `http://${req.headers.host}`)
+      const pathSplitList = pathname.replace(new RegExp(`.*${RegExpUrl}`), '').split('/')
+      const firstPathItem = toFirstUpperCase(pathSplitList[0])
+      let pathNameStr = ''
 
-      console.log('In process...', pathname)
+      if (pathSplitList.length === 1 || (pathSplitList.length === 2 && checkParamId(pathSplitList[1]))) {
+        pathNameStr = firstPathItem
+      }
+      else {
+        const lastParam = pathSplitList[pathSplitList.length - 1]
+        if (checkParamId(lastParam))
+          pathNameStr = firstPathItem + toFirstUpperCase(pathSplitList[pathSplitList.length - 2])
+        else
+          pathNameStr = firstPathItem + toFirstUpperCase(lastParam)
+      }
+
+      const typeName = `${toFirstUpperCase(method.toLowerCase())}${pathNameStr}ResType`
+      const annotationTypeName = `@typeName ${typeName}`
 
       // decompress proxy response
       const _proxyRes = decompress(proxyRes, proxyRes.headers['content-encoding'])
@@ -38,8 +78,8 @@ export function createRuntimeGeneratedType({ outputPath, dataSource = '', genOnc
         if (genOnce) {
           try {
             const res = await fs.readFile(outputPath)
-            if (isExistTypeName(res.toString())) {
-              console.log(`Parameter type name ${typeName} already exists`)
+            if (res.toString().includes(annotationTypeName)) {
+              console.log(chalk.redBright(`Parameter type name ${typeName} already exists`))
               return
             }
           }
@@ -55,44 +95,71 @@ export function createRuntimeGeneratedType({ outputPath, dataSource = '', genOnc
             const ast = createTypeAst(resData)
             baseParse(resData, ast)
             // console.log('baseParse:', JSON.stringify(ast, null, 2))
-            const code = generate(ast, {
+            const { exportCode, typeCode } = generate(ast, {
               typeName,
             })
             // console.log(code)
-            fs.readFile(outputPath).then((res) => {
-              const data = res.toString()
+            const annotationCode = generateAnnotation({
+              url: pathname,
+              method,
+              typeName,
+            })
 
-              if (!isExistTypeName(data)) {
-                console.log(chalk.green(`Have added: ${typeName}`))
-
-                const newData = `${data}\n\n${code}`
-                fs.writeFile(outputPath, newData)
+            async function writeTypeCodeToFile() {
+              if (fileProcessing) {
+                taskQueue.push(writeTypeCodeToFile)
+                return
               }
-              else if (data.includes(code)) {
-                console.log(chalk.blue(`No change: ${typeName}`))
-              }
-              else {
-                if (validateStatus(proxyRes.statusCode || -1)) {
-                  console.log(chalk.red(`Have changes: ${typeName}`))
+              fileProcessing = true
 
-                  const dataSplitList = data.split('export ')
-                  const currentIndex = dataSplitList.findIndex(strItem => isExistTypeName(strItem))
-                  // replace type code
-                  dataSplitList.splice(currentIndex, 1, `${code}\n\n`)
+              try {
+                const res = await fs.readFile(outputPath)
+                const fileData = res.toString()
 
-                  const newData = dataSplitList.reduce((prevValue, curValue, index) => {
-                    return prevValue + ((curValue.length && index !== currentIndex) ? `export ${curValue}` : curValue)
-                  }, '')
-                  fs.writeFile(outputPath, newData)
+                if (!fileData.includes(annotationTypeName)) {
+                  console.log(chalk.green(`Have added: ${typeName}`))
+                  const newData = `${fileData}\n\n${annotationCode}\n${exportCode}`
+
+                  await fs.writeFile(outputPath, newData)
+                }
+                else if (fileData.includes(exportCode) || fileData.includes(typeCode)) {
+                  console.log(chalk.blue(`No change: ${typeName}`))
                 }
                 else {
-                  console.error(`${proxyRes.statusCode}: ${pathname}`)
-                  console.error('statusCode >= 200 && statusCode < 300 To generate parameter types.')
+                  if (validateStatus(proxyRes.statusCode || -1)) {
+                    console.log(chalk.red(`Have changes: ${typeName}`))
+
+                    const matches = fileData.match(RegexAnnotation)
+                    const filteredMatches = matches!.filter(match => match.includes(annotationTypeName))
+                    const prevAnnotation = filteredMatches.join('')
+                    const prevAnnotationIdx = fileData.indexOf(prevAnnotation)
+
+                    // Matches the first export
+                    const exportMatches = fileData.slice(prevAnnotationIdx + prevAnnotation.length).match(RegexExport)
+
+                    // replace type code
+                    if (exportMatches) {
+                      const newData = fileData.replace(exportMatches[0], exportMatches[1] + typeCode)
+                      await fs.writeFile(outputPath, newData)
+                    }
+                  }
+                  else {
+                    console.error(`${proxyRes.statusCode}: ${pathname}`)
+                    console.error('statusCode >= 200 && statusCode < 300 To generate parameter types.')
+                  }
                 }
               }
-            }).catch(() => {
-              fs.writeFile(outputPath, code)
-            })
+              catch (error) {
+                console.log(chalk.green(`Create File: ${outputPath}`))
+                await fs.writeFile(outputPath, `${annotationCode}\n${exportCode}`)
+              }
+              fileProcessing = false
+
+              const nextTask = taskQueue.shift()
+              nextTask && nextTask()
+            }
+
+            await writeTypeCodeToFile()
           }
           else {
             // get error interface

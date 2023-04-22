@@ -81,15 +81,19 @@ export function generate(ast: any, options: any) {
   const context = createCodegenContext()
   const { push } = context
 
-  if (ast.type === OBJECT_TYPE)
-    push(`export interface ${typeName} `)
-  else if (ast.type === ARRAY_TYPE)
-    push(`export type ${typeName} = `)
-
   if (ast.children)
     genTsNode(ast, context)
   else
     push(`${ast.children}`)
 
-  return context.code
+  let exportName = ''
+  if (ast.type === OBJECT_TYPE)
+    exportName = `export interface ${typeName} `
+  else if (ast.type === ARRAY_TYPE)
+    exportName = `export type ${typeName} = `
+
+  return {
+    typeCode: context.code,
+    exportCode: exportName + context.code,
+  }
 }

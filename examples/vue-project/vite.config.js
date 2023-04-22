@@ -23,10 +23,7 @@ export default defineConfig({
         configure: createRuntimeGeneratedType({
           dataSource: '', // 指定接口返回数据的位置
           outputPath: path.resolve(__dirname, './src/types.ts'),
-          typeNameRules: '[method][pathname]ResType'
-          // [method] => eg. get post put delete
-          // [lastpathname] => eg. request url: /api/posts/4/comments
-          // [params.id] => eg. request parameter
+          baseUrl: '/api/*',
         }),
       },
     }

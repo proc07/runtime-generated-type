@@ -4,14 +4,17 @@ export function toFirstUpperCase(word: string) {
 
 export function toTypeof(val: any) {
   const s = Object.prototype.toString.call(val)
-  return s!.match(/\[object (.*?)\]/)[1].toLowerCase()
+  const typeRes = s!.match(/\[object (.*?)\]/)
+
+  return typeRes && typeRes[1].toLowerCase()
 }
 
-export function detectionTypName(typeName: string) {
-  const isInterface = `interface ${typeName} `
-  const isType = `type ${typeName} `
+export function isAllNumbers(str: string) {
+  return /^\d+$/.test(str)
+}
 
-  return function isExistTypeName(strData: string) {
-    return strData.includes(isInterface) || strData.includes(isType)
-  }
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isUUID(str: string) {
+  return uuidRegex.test(str)
 }
