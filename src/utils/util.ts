@@ -6,7 +6,7 @@ export function toTypeof(val: any) {
   const s = Object.prototype.toString.call(val)
   const typeRes = s!.match(/\[object (.*?)\]/)
 
-  return typeRes && typeRes[1].toLowerCase()
+  return typeRes ? typeRes[1].toLowerCase() : 'unknown'
 }
 
 export function isAllNumbers(str: string) {

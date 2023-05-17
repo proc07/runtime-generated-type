@@ -1,25 +1,23 @@
 import { toTypeof } from '../utils/util'
+import type { ArrayNode, ObjectNode, RootTypeNode } from '../types/nodeTypes'
 import { ARRAY_TYPE, OBJECT_TYPE, UNION_TYPE } from '../types/nodeTypes'
 
-export function createTypeAst(resData: any) {
+export function createTypeAst(resData: unknown): RootTypeNode | null {
   const valType = toTypeof(resData)
   return valType === 'array'
     ? createArrayType()
     : valType === 'object'
       ? createObjectType()
-      : {
-          type: toTypeof(resData),
-          children: null,
-        }
+      : null
 }
 
-function createArrayType() {
+function createArrayType(): ArrayNode {
   return {
     type: ARRAY_TYPE,
     children: [],
   }
 }
-function createObjectType() {
+function createObjectType(): ObjectNode {
   return {
     type: OBJECT_TYPE,
     children: {},
@@ -37,7 +35,7 @@ export function baseParse(resData: any, ast: any) {
   const prevChildKeys = Object.keys(children)
 
   for (const key in resData) {
-    const value = resData[key]
+    const value = resData[key] // key as number | string
     const valType = toTypeof(value)
 
     if (valType === 'object') {
@@ -124,15 +122,15 @@ export function baseParse(resData: any, ast: any) {
     }
     else {
       if (children[key]) {
-        const { type: cType, children: cChildren } = children[key]
+        const { type: _type, children: _children } = children[key]
 
-        if (isArrayType(cType)) {
-          const fIndex: number = cChildren.findIndex((item: any) => (item.dynamicType) === valType)
+        if (isArrayType(_type)) {
+          const fIndex: number = _children.findIndex((item: any) => (item.dynamicType) === valType)
 
           if (fIndex === -1)
-            cChildren.push(createDynamicType(valType))
+            _children.push(createDynamicType(valType))
         }
-        else if (cType === OBJECT_TYPE || children[key].dynamicType !== valType) {
+        else if (_type === OBJECT_TYPE || children[key].dynamicType !== valType) {
           const prevOptional = children[key]?.optional
 
           children[key] = {

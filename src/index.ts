@@ -1,5 +1,5 @@
 import fs from 'fs/promises'
-import type { HttpProxy, ProxyOptions } from 'vite'
+import type { HttpProxy } from 'vite'
 import chalk from 'chalk'
 import { baseParse, createTypeAst } from './compile/parse'
 import { generate } from './compile/codegen'
@@ -36,7 +36,6 @@ function generateAnnotation({
  * @typeName ${typeName}
  */`
 }
-
 interface userOptions {
   outputPath: string
   dataSource?: string
@@ -46,8 +45,8 @@ interface userOptions {
 export function createRuntimeGeneratedType({ outputPath, dataSource = '', baseUrl = '', genOnce = false }: userOptions) {
   const RegExpUrl = baseUrl.replaceAll('/*', '/([^/]*)')
 
-  return function (proxy: HttpProxy.Server, options: ProxyOptions) {
-    proxy.on('proxyRes', async (proxyRes, req, res) => {
+  return function (proxy: HttpProxy.Server) {
+    proxy.on('proxyRes', async (proxyRes, req) => {
       const method = req.method || ''
       const { pathname } = new URL(req.url as string, `http://${req.headers.host}`)
       const pathSplitList = pathname.replace(new RegExp(`.*${RegExpUrl}`), '').split('/')
@@ -89,16 +88,16 @@ export function createRuntimeGeneratedType({ outputPath, dataSource = '', baseUr
         try {
           const responseString = buffer.toString()
           const responseData = JSON.parse(responseString)
-          const resData = dataSource.length ? dataSource.split('.').reduce((data, i) => data[i], responseData) : responseData
+          const resData: unknown = dataSource.length ? dataSource.split('.').reduce((data, i) => data[i], responseData) : responseData
+          const ast = createTypeAst(resData)
 
-          if (resData) {
-            const ast = createTypeAst(resData)
+          if (ast) {
             baseParse(resData, ast)
-            // console.log('baseParse:', JSON.stringify(ast, null, 2))
+
             const { exportCode, typeCode } = generate(ast, {
               typeName,
             })
-            // console.log(code)
+
             const annotationCode = generateAnnotation({
               url: pathname,
               method,

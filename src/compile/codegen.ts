@@ -76,7 +76,7 @@ function genTsNode(ast: any, context: any) {
   }
 }
 
-export function generate(ast: any, options: any) {
+export function generate(ast: any, options: { typeName: string }) {
   const { typeName } = options
   const context = createCodegenContext()
   const { push } = context
