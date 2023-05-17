@@ -1,4 +1,34 @@
 /**
+ * Request URL: /photos/8
+ * 
+ * Request Method: GET
+ * 
+ * @typeName GetPhotosResType
+ */
+export interface GetPhotosResType {
+  albumId: number
+  id: number
+  title: string
+  url: string
+  thumbnailUrl: string
+}
+
+/**
+ * Request URL: /posts/4/comments
+ * 
+ * Request Method: GET
+ * 
+ * @typeName GetCommentsResType
+ */
+export type GetCommentsResType = Array<{
+  postId: number
+  id: number
+  name: string
+  email: string
+  body: string
+}>
+
+/**
  * Request URL: /users
  * 
  * Request Method: GET
@@ -28,36 +58,6 @@ export type GetUsersResType = Array<{
     bs: string
   }
 }>
-
-/**
- * Request URL: /posts/4/comments
- * 
- * Request Method: GET
- * 
- * @typeName GetCommentsResType
- */
-export type GetCommentsResType = Array<{
-  postId: number
-  id: number
-  name: string
-  email: string
-  body: string
-}>
-
-/**
- * Request URL: /photos/8
- * 
- * Request Method: GET
- * 
- * @typeName GetPhotosResType
- */
-export interface GetPhotosResType {
-  albumId: number
-  id: number
-  title: string
-  url: string
-  thumbnailUrl: string
-}
 
 /**
  * Request URL: /posts/4/comments
