@@ -1,6 +1,12 @@
-# runtime-generated-type
+<h1 align="center">runtime-generated-type</h1>
 
-[![NPM version](https://img.shields.io/npm/v/runtime-generated-type?color=a1b858&label=)](https://www.npmjs.com/package/runtime-generated-type)
+<p align="center">
+Generates typescript code when sending the request interface.
+</p>
+
+<p align="center">
+<a href="https://www.npmjs.com/package/runtime-generated-type"><img src="https://img.shields.io/npm/v/runtime-generated-type?color=a1b858&label=" alt="NPM version"></a></p>
+
 
 ## Install
 ```bash
