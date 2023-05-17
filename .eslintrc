@@ -1,4 +1,7 @@
 {
+  "env": {
+    "browser": false
+  },
   "extends": "@antfu",
   "rules": {
     "no-console": "off"

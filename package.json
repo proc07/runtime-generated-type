@@ -49,6 +49,7 @@
     "@antfu/eslint-config": "^0.35.3",
     "@antfu/ni": "^0.20.0",
     "@antfu/utils": "^0.7.2",
+    "@rollup/plugin-node-resolve": "^15.0.2",
     "@types/node": "^18.14.1",
     "bumpp": "^9.0.0",
     "chalk": "^5.2.0",
