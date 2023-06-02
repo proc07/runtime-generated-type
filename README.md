@@ -70,25 +70,24 @@ module.exports = function(app) {
 
 | 参数 | 类型 | 必填 | 参数说明 | 示例 |
 | :--- | :--- | :--- | :--- | :--- |
-| dataSource | String | false | 指定生成类型数据源位置 | 'data.item' |
 | outputPath | String | true | 生成文件路径 | path.resolve(__dirname, './src/types.ts') |
 | baseUrl | String | true | 配置请求接口地址的统一前缀  | '/api/*' (*号自动匹配任意字符) |
+| dataSource | String | false | 指定生成类型数据源位置 | 'data.item' |
 | genOnce | Boolean | false | 每个接口仅生成一次类型 |   |
-
+| matching | Array<string> | false | 匹配动态参数请求接口 | ['/posts/*/comments'] |
+| prefix | boolean | false | typeName 添加前缀 | Get \| Post \| Put \| Delete ... |
 
 Request url to generate type name matching rules
 
-- GET:    /api/v1/team/department/frontGroup/:id       -> GetTeamFrontGroup
-- GET:    /api/v1/team/department/endGroup/:id         -> GetTeamEndGroup
-- GET:    /api/v1/team/department/endGroup/:id/details -> GetTeamEndGroupDetails
-
+- GET:    /api/v1/team/department/frontGroup/:id       -> TeamDepartmentFrontGroup
+- GET:    /api/v1/team/department/endGroup/:id         -> TeamDepartmentEndGroup
+- GET:    /api/v1/team/department/endGroup/:id/details -> TeamDepartmentEndGroupDetails
 - GET:    /api/v1/teamMember  -> GetTeamMember
 - PUT:    /api/v1/teamMember  -> PutTeamMember
 - DELETE: /api/v1/teamMember  -> DeleteTeamMember
-
-- POST:   /api/workflow/:id/inter/search -> PostWorkflowSearch
-- POST:   /api/system/:id/inter/search   -> PostSystemSearch
-- GET:    /api/user/:id/inter/search     -> GetUserSearch
+- POST:   /api/workflow/:id/inter/search -> PostWorkflowInterSearch
+- POST:   /api/system/:id/inter/search   -> PostSystemInterSearch
+- GET:    /api/user/:id/inter/search     -> GetUserInterSearch
 
 ## License
 

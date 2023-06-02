@@ -17,6 +17,37 @@ function validateStatus(status: number) {
 function checkParamId(params: string) {
   return isAllNumbers(params) || isUUID(params)
 }
+const CACHE_REG: { [url: string]: RegExp } = {}
+function cacheBaseUrlReg(baseUrl: string) {
+  if (!CACHE_REG[baseUrl])
+    CACHE_REG[baseUrl] = new RegExp(`.*${baseUrl.replaceAll('/*', '/([^/]*)')}`)
+
+  return CACHE_REG[baseUrl]
+}
+function stringConvertToRegExp(matching: Array<string>) {
+  // todo: cache
+  return matching.map(matchString => new RegExp(`${matchString.replace('*', '([^/]*)')}$`))
+}
+
+export function extractPathName(fullPathname: string, { baseUrl = '', matching = [] }: Omit<UserOptions, 'outputPath'>) {
+  const RegExpBaseUrl = cacheBaseUrlReg(baseUrl)
+  const pathname = fullPathname.replace(RegExpBaseUrl, '')
+  let pathSplitList = pathname.split('/')
+
+  stringConvertToRegExp(matching).some((regex: RegExp) => {
+    const result = regex.exec(pathname)
+    if (result) {
+      pathSplitList = pathSplitList.filter(item => item !== result[1])
+      return result
+    }
+    else {
+      return false
+    }
+  })
+
+  return pathSplitList.filter(item => item && !checkParamId(item))
+    .map(item => toFirstUpperCase(item)).join('')
+}
 
 interface GenAnnotationProps {
   url: string
@@ -36,35 +67,30 @@ function generateAnnotation({
  * @typeName ${typeName}
  */`
 }
-interface userOptions {
+interface UserOptions {
+  baseUrl: string
   outputPath: string
   dataSource?: string
-  baseUrl?: string
   genOnce?: boolean
+  matching?: Array<string>
+  prefix?: boolean
 }
-export function createRuntimeGeneratedType({ outputPath, dataSource = '', baseUrl = '', genOnce = false }: userOptions) {
-  const RegExpUrl = baseUrl.replaceAll('/*', '/([^/]*)')
+export function createRuntimeGeneratedType(userOptions: UserOptions) {
+  const { outputPath, dataSource = '', genOnce = false, prefix = false } = userOptions
 
   return function (proxy: HttpProxy.Server) {
     proxy.on('proxyRes', async (proxyRes, req) => {
       const method = req.method || ''
       const { pathname } = new URL(req.url as string, `http://${req.headers.host}`)
-      const pathSplitList = pathname.replace(new RegExp(`.*${RegExpUrl}`), '').split('/')
-      const firstPathItem = toFirstUpperCase(pathSplitList[0])
-      let pathNameStr = ''
 
-      if (pathSplitList.length === 1 || (pathSplitList.length === 2 && checkParamId(pathSplitList[1]))) {
-        pathNameStr = firstPathItem
-      }
-      else {
-        const lastParam = pathSplitList[pathSplitList.length - 1]
-        if (checkParamId(lastParam))
-          pathNameStr = firstPathItem + toFirstUpperCase(pathSplitList[pathSplitList.length - 2])
-        else
-          pathNameStr = firstPathItem + toFirstUpperCase(lastParam)
+      if (!validateStatus(proxyRes.statusCode!)) {
+        console.error(`${proxyRes.statusCode}: ${pathname}`)
+        console.error('statusCode >= 200 && statusCode < 300 To generate parameter types.')
+        return
       }
 
-      const typeName = `${toFirstUpperCase(method.toLowerCase())}${pathNameStr}ResType`
+      const pathNameStr = extractPathName(pathname, userOptions)
+      const typeName = `${prefix ? toFirstUpperCase(method.toLowerCase()) : ''}${pathNameStr}ResType`
       const annotationTypeName = `@typeName ${typeName}`
 
       // decompress proxy response
@@ -125,26 +151,19 @@ export function createRuntimeGeneratedType({ outputPath, dataSource = '', baseUr
                   console.log(chalk.blue(`No change: ${typeName}`))
                 }
                 else {
-                  if (validateStatus(proxyRes.statusCode || -1)) {
-                    console.log(chalk.red(`Have changes: ${typeName}`))
+                  console.log(chalk.red(`Have changes: ${typeName}`))
+                  const matches = fileData.match(RegexAnnotation)
+                  const filteredMatches = matches!.filter(match => match.includes(annotationTypeName))
+                  const prevAnnotation = filteredMatches.join('')
+                  const prevAnnotationIdx = fileData.indexOf(prevAnnotation)
 
-                    const matches = fileData.match(RegexAnnotation)
-                    const filteredMatches = matches!.filter(match => match.includes(annotationTypeName))
-                    const prevAnnotation = filteredMatches.join('')
-                    const prevAnnotationIdx = fileData.indexOf(prevAnnotation)
+                  // Matches the first export
+                  const exportMatches = fileData.slice(prevAnnotationIdx + prevAnnotation.length).match(RegexExport)
 
-                    // Matches the first export
-                    const exportMatches = fileData.slice(prevAnnotationIdx + prevAnnotation.length).match(RegexExport)
-
-                    // replace type code
-                    if (exportMatches) {
-                      const newData = fileData.replace(exportMatches[0], exportMatches[1] + typeCode)
-                      await fs.writeFile(outputPath, newData)
-                    }
-                  }
-                  else {
-                    console.error(`${proxyRes.statusCode}: ${pathname}`)
-                    console.error('statusCode >= 200 && statusCode < 300 To generate parameter types.')
+                  // replace type code
+                  if (exportMatches) {
+                    const newData = fileData.replace(exportMatches[0], exportMatches[1] + typeCode)
+                    await fs.writeFile(outputPath, newData)
                   }
                 }
               }

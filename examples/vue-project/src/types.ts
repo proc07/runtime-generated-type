@@ -1,3 +1,17 @@
+
+
+/**
+ * Request URL: /posts/4/comments
+ * 
+ * Request Method: POST
+ * 
+ * @typeName PostPostsCommentsResType
+ */
+export interface PostPostsCommentsResType {
+  postId: string
+  id: number
+}
+
 /**
  * Request URL: /photos/8
  * 
@@ -18,9 +32,9 @@ export interface GetPhotosResType {
  * 
  * Request Method: GET
  * 
- * @typeName GetCommentsResType
+ * @typeName GetPostsCommentsResType
  */
-export type GetCommentsResType = Array<{
+export type GetPostsCommentsResType = Array<{
   postId: number
   id: number
   name: string
@@ -58,15 +72,3 @@ export type GetUsersResType = Array<{
     bs: string
   }
 }>
-
-/**
- * Request URL: /posts/4/comments
- * 
- * Request Method: POST
- * 
- * @typeName PostCommentsResType
- */
-export interface PostCommentsResType {
-  postId: string
-  id: number
-}

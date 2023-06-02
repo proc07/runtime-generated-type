@@ -20,9 +20,14 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
         configure: createRuntimeGeneratedType({
+          prefix: true,
           dataSource: '', // 指定接口返回数据的位置
           outputPath: path.resolve(__dirname, './src/types.ts'),
           baseUrl: '/api/*',
+          matching: [
+            '/posts/*/comments',
+            '/test/*'
+          ]
         }),
       },
     }
